@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>75-Ball Bingo</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        :root {
+            --bg-color: #f5f5f5;
+            --text-color: #333;
+            --card-bg: white;
+            --border-color: #ddd;
+            --primary: #0088cc;
+            --success: #4caf50;
+            --danger: #f44336;
+            --warning: #ff9800;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --text-color: #f5f5f5;
+            --card-bg: #2d2d2d;
+            --border-color: #404040;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .wallet {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .room-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .info-label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .numbers-grid {
+            display: grid;
+            grid-template-columns: repeat(15, 1fr);
+            gap: 4px;
+            margin: 20px 0;
+            padding: 10px;
+            background: var(--card-bg);
+            border-radius: 10px;
+        }
+
+        .number-ball {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .number-ball.called {
+            animation: pop 0.3s ease-out;
+        }
+
+        .number-ball[data-color="red"] { background: #f44336; }
+        .number-ball[data-color="blue"] { background: #2196f3; }
+        .number-ball[data-color="green"] { background: #4caf50; }
+        .number-ball[data-color="yellow"] { background: #ff9800; }
+        .number-ball[data-color="purple"] { background: #9c27b0; }
+
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .bingo-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .card-row {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .card-cell {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-color);
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 20px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .card-cell.marked {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+            transform: scale(0.95);
+        }
+
+        .card-cell.winning-line {
+            border-color: var(--warning);
+            box-shadow: 0 0 0 2px var(--warning);
+        }
+
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .button.primary {
+            background: var(--primary);
+            color: white;
+        }
+
+        .button.primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .button.success {
+            background: var(--success);
+            color: white;
+        }
+
+        .timer-bar {
+            height: 4px;
+            background: var(--primary);
+            transition: width 1s linear;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 16px;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .winner-animation {
+            font-size: 48px;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        @media (max-width: 600px) {
+            .numbers-grid {
+                grid-template-columns: repeat(10, 1fr);
+            }
+            .card-cell {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>🎲 75-Ball Bingo</h2>
+            <div class="wallet" id="wallet">$0.00</div>
+        </div>
+
+        <div class="room-info">
+            <div class="info-card">
+                <div class="info-label">Room</div>
+                <div class="info-value" id="room-name">Main Hall</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Pool</div>
+                <div class="info-value" id="pool">$0</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Jackpot</div>
+                <div class="info-value" id="jackpot">$0</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Timer</div>
+                <div class="info-value" id="timer">5s</div>
+            </div>
+        </div>
+
+        <div class="numbers-grid" id="numbers-grid"></div>
+
+        <div class="bingo-card" id="bingo-card">
+            <div id="card-rows"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="button primary" id="buy-card" onclick="buyCard()">Buy Card ($1)</button>
+            <button class="button success" id="claim-btn" onclick="claimWin()" disabled>Claim Win</button>
+        </div>
+
+        <div class="timer-bar" id="timer-bar" style="margin-top: 20px;"></div>
+    </div>
+
+    <div class="modal" id="winner-modal">
+        <div class="modal-content">
+            <div class="winner-animation">🏆</div>
+            <h2 id="winner-title">You Won!</h2>
+            <p id="winner-amount">$0.00</p>
+            <button class="button primary" onclick="closeModal()">Awesome!</button>
+        </div>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        tg.enableClosingConfirmation();
+
+        // Theme
+        const theme = tg.colorScheme;
+        document.body.setAttribute('data-theme', theme);
+
+        // State
+        let userId = tg.initDataUnsafe?.user?.id || 'test_user';
+        let userBalance = 0;
+        let currentRound = null;
+        let userCards = [];
+        let markedNumbers = [];
+        let ws = null;
+        let timerInterval = null;
+        let timeLeft = 5;
+
+        // Initialize
+        async function init() {
+            await loadUserData();
+            await loadCurrentRound();
+            connectWebSocket();
+            renderNumbersGrid();
+            startTimer();
+        }
+
+        // WebSocket connection
+        function connectWebSocket() {
+            const roomId = 1; // Default room
+            ws = new WebSocket(`wss://${window.location.host}/ws/${roomId}/${userId}`);
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        function handleWebSocketMessage(data) {
+            switch(data.type) {
+                case 'number_called':
+                    addCalledNumber(data.number);
+                    markNumberOnCard(data.number);
+                    updateNumbersCalled(data.called_numbers);
+                    break;
+                case 'winner':
+                    showWinner(data.amount, data.is_jackpot);
+                    break;
+                case 'round_started':
+                    loadCurrentRound();
+                    break;
+                case 'new_round':
+                    setTimeout(() => loadCurrentRound(), 1000);
+                    break;
+            }
+        }
+
+        // Load user data
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/user/balance', {
+                    headers: {
+                        'X-Telegram-Init-Data': tg.initData
+                    }
+                });
+                const data = await response.json();
+                userBalance = data.balance;
+                updateWallet();
+            } catch (error) {
+                console.error('Failed to load user data:', error);
+            }
+        }
+
+        // Load current round
+        async function loadCurrentRound() {
+            try {
+                const response = await fetch('/api/round/1'); // Room ID 1
+                const data = await response.json();
+                currentRound = data;
+                
+                document.getElementById('pool').textContent = `$${data.total_pool || 0}`;
+                document.getElementById('jackpot').textContent = `$${data.jackpot_pool || 0}`;
+                
+                if (data.numbers_called) {
+                    updateNumbersCalled(data.numbers_called);
+                }
+            } catch (error) {
+                console.error('Failed to load round:', error);
+            }
+        }
+
+        // Buy card
+        async function buyCard() {
+            const btn = document.getElementById('buy-card');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/buy_card', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': tg.initData
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        round_id: currentRound?.round_id
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    userCards.push({
+                        id: data.card_id,
+                        numbers: data.numbers
+                    });
+                    renderCard(data.numbers);
+                    userBalance = data.balance;
+                    updateWallet();
+                    tg.showPopup({message: 'Card purchased successfully!'});
+                } else {
+                    tg.showPopup({message: 'Failed to buy card'});
+                }
+            } catch (error) {
+                console.error('Buy card error:', error);
+                tg.showPopup({message: 'Error buying card'});
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Claim win
+        async function claimWin() {
+            if (!userCards.length) return;
+            
+            const btn = document.getElementById('claim-btn');
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch('/api/claim', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-Init-Data': tg.initData
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        round_id: currentRound?.round_id,
+                        card_id: userCards[0].id
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    showWinner(data.amount, data.is_jackpot);
+                } else {
+                    tg.showPopup({message: data.message || 'Claim failed'});
+                }
+            } catch (error) {
+                console.error('Claim error:', error);
+                tg.showPopup({message: 'Error claiming win'});
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Render numbers grid
+        function renderNumbersGrid() {
+            const grid = document.getElementById('numbers-grid');
+            grid.innerHTML = '';
+            
+            for (let i = 1; i <= 75; i++) {
+                const ball = document.createElement('div');
+                ball.className = 'number-ball';
+                ball.id = `num-${i}`;
+                ball.textContent = i;
+                
+                // Color by number range
+                if (i <= 15) ball.dataset.color = 'red';
+                else if (i <= 30) ball.dataset.color = 'blue';
+                else if (i <= 45) ball.dataset.color = 'green';
+                else if (i <= 60) ball.dataset.color = 'yellow';
+                else ball.dataset.color = 'purple';
+                
+                grid.appendChild(ball);
+            }
+        }
+
+        // Add called number
+        function addCalledNumber(number) {
+            const ball = document.getElementById(`num-${number}`);
+            if (ball) {
+                ball.classList.add('called');
+            }
+        }
+
+        // Update called numbers
+        function updateNumbersCalled(numbers) {
+            markedNumbers = numbers || [];
+            document.querySelectorAll('.number-ball').forEach(ball => {
+                const num = parseInt(ball.textContent);
+                if (markedNumbers.includes(num)) {
+                    ball.classList.add('called');
+                } else {
+                    ball.classList.remove('called');
+                }
+            });
+        }
+
+        // Render card
+        function renderCard(numbers) {
+            const container = document.getElementById('card-rows');
+            container.innerHTML = '';
+            
+            numbers.forEach((row, rowIndex) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'card-row';
+                rowDiv.id = `row-${rowIndex}`;
+                
+                row.forEach(num => {
+                    const cell = document.createElement('div');
+                    cell.className = 'card-cell';
+                    cell.id = `cell-${num}`;
+                    cell.textContent = num;
+                    
+                    if (markedNumbers.includes(num)) {
+                        cell.classList.add('marked');
+                    }
+                    
+                    rowDiv.appendChild(cell);
+                });
+                
+                container.appendChild(rowDiv);
+            });
+            
+            // Enable claim button
+            document.getElementById('claim-btn').disabled = false;
+        }
+
+        // Mark number on card
+        function markNumberOnCard(number) {
+            const cell = document.getElementById(`cell-${number}`);
+            if (cell) {
+                cell.classList.add('marked');
+                checkForWin();
+            }
+        }
+
+        // Check for win
+        function checkForWin() {
+            if (!userCards.length) return;
+            
+            // Check each row for complete line
+            for (let row = 0; row < 3; row++) {
+                const rowCells = document.querySelectorAll(`#row-${row} .card-cell`);
+                const markedInRow = Array.from(rowCells).filter(cell => 
+                    cell.classList.contains('marked')
+                ).length;
+                
+                if (markedInRow === 5) {
+                    // Highlight winning line
+                    rowCells.forEach(cell => cell.classList.add('winning-line'));
+                    return;
+                }
+            }
+        }
+
+        // Timer
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            
+            timeLeft = 5;
+            updateTimer();
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+                
+                if (timeLeft <= 0) {
+                    timeLeft = 5;
+                }
+            }, 1000);
+        }
+
+        function updateTimer() {
+            document.getElementById('timer').textContent = `${timeLeft}s`;
+            document.getElementById('timer-bar').style.width = `${(timeLeft / 5) * 100}%`;
+        }
+
+        // Show winner modal
+        function showWinner(amount, isJackpot) {
+            document.getElementById('winner-title').textContent = isJackpot ? '🎉 JACKPOT! 🎉' : 'You Won!';
+            document.getElementById('winner-amount').textContent = `$${amount.toFixed(2)}`;
+            document.getElementById('winner-modal').classList.add('active');
+            
+            // Play sound (if supported)
+            const audio = new Audio('data:audio/wav;base64,//uQRAAAAWMSLwUIYAAsYkXgoQwAEaYLWfkWgAI0wWs/ItAAAGDgYtAgAyN+QWaAAihwMWm4G8QQR33Mc7AYFQioAAA=');
+            audio.play().catch(() => {});
+            
+            // Update balance
+            userBalance += amount;
+            updateWallet();
+        }
+
+        function closeModal() {
+            document.getElementById('winner-modal').classList.remove('active');
+        }
+
+        function updateWallet() {
+            document.getElementById('wallet').textContent = `$${userBalance.toFixed(2)}`;
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

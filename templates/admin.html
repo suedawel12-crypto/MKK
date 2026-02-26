@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bingo Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #0088cc;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .section {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #0088cc;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #006699;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #d32f2f;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-inactive {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-waiting {
+            background: #ff9800;
+            color: white;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>🎲 Bingo Admin Dashboard</h1>
+            <div>
+                <span id="current-time"></span>
+                <button class="btn btn-primary" onclick="refreshData()">Refresh</button>
+                <button class="btn btn-danger" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value" id="total-users">0</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="active-rounds">0</div>
+                <div class="stat-label">Active Rounds</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-volume">0</div>
+                <div class="stat-label">Cards Sold</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="total-winnings">$0</div>
+                <div class="stat-label">Total Winnings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="house-profit">$0</div>
+                <div class="stat-label">House Profit</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Revenue Overview</h2>
+            </div>
+            <div class="chart-container">
+                <canvas id="revenue-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Rooms Management -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Rooms Management</h2>
+                <button class="btn btn-success" onclick="showCreateRoomModal()">+ New Room</button>
+            </div>
+            <table id="rooms-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Card Price</th>
+                        <th>Players</th>
+                        <th>Status</th>
+                        <th>Current Round</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="rooms-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Active Rounds -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Active Rounds</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Round ID</th>
+                        <th>Room</th>
+                        <th>Status</th>
+                        <th>Pool</th>
+                        <th>Numbers Called</th>
+                        <th>Start Time</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="rounds-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Users List -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Users</h2>
+                <input type="text" placeholder="Search users..." onkeyup="searchUsers(this.value)">
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Telegram ID</th>
+                        <th>Username</th>
+                        <th>Balance</th>
+                        <th>Cards</th>
+                        <th>Status</th>
+                        <th>Joined</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="users-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+            <div style="margin-top: 20px; text-align: center;">
+                <button class="btn" onclick="loadMoreUsers()">Load More</button>
+            </div>
+        </div>
+
+        <!-- Transactions -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Recent Transactions</h2>
+                <button class="btn" onclick="exportCSV()">Export CSV</button>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>User</th>
+                        <th>Amount</th>
+                        <th>Type</th>
+                        <th>Reference</th>
+                        <th>Timestamp</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Audit Logs -->
+        <div class="section">
+            <div class="section-header">
+                <h2>Audit Logs</h2>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Action</th>
+                        <th>User</th>
+                        <th>Details</th>
+                        <th>IP</th>
+                    </tr>
+                </thead>
+                <tbody id="audit-body">
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create Room Modal -->
+    <div class="modal" id="create-room-modal">
+        <div class="modal-content">
+            <h2>Create New Room</h2>
+            <div class="form-group">
+                <label>Room Name</label>
+                <input type="text" id="room-name" placeholder="Main Hall">
+            </div>
+            <div class="form-group">
+                <label>Card Price ($)</label>
+                <input type="number" id="room-price" value="1.00" step="0.50">
+            </div>
+            <div class="form-group">
+                <label>Max Players</label>
+                <input type="number" id="room-max" value="100">
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn" onclick="closeCreateRoomModal()">Cancel</button>
+                <button class="btn btn-success" onclick="createRoom()">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let currentPage = 1;
+
+        // Initialize
+        async function init() {
+            await loadStats();
+            await loadRooms();
+            await loadRounds();
+            await loadUsers();
+            await loadTransactions();
+            await loadAuditLogs();
+            updateTime();
+            initChart();
+            setInterval(updateTime, 1000);
+            setInterval(refreshData, 30000); // Refresh every 30 seconds
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats', {
+                    headers: {
+                        'X-Admin-ID': 'YOUR_ADMIN_ID'
+                    }
+                });
+                const data = await response.json();
+                
+                document.getElementById('total-users').textContent = data.total_users;
+                document.getElementById('active-rounds').textContent = data.active_rounds;
+                document.getElementById('total-volume').textContent = data.total_volume;
+                document.getElementById('total-winnings').textContent = `$${data.total_winnings}`;
+                document.getElementById('house-profit').textContent = `$${data.house_profit}`;
+                
+                updateChart(data.revenue_data);
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+            }
+        }
+
+        // Load rooms
+        async function loadRooms() {
+            try {
+                const response = await fetch('/api/admin/rooms', {
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                const rooms = await response.json();
+                
+                const tbody = document.getElementById('rooms-body');
+                tbody.innerHTML = '';
+                
+                rooms.forEach(room => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${room.id}</td>
+                        <td>${room.name}</td>
+                        <td>$${room.card_price}</td>
+                        <td>${room.players || 0}</td>
+                        <td><span class="status-badge ${room.status === 'active' ? 'status-active' : 'status-inactive'}">${room.status}</span></td>
+                        <td>Round #${room.current_round || 'None'}</td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="editRoom(${room.id})">Edit</button>
+                            <button class="btn btn-danger btn-small" onclick="toggleRoom(${room.id})">${room.status === 'active' ? 'Disable' : 'Enable'}</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Failed to load rooms:', error);
+            }
+        }
+
+        // Load rounds
+        async function loadRounds() {
+            try {
+                const response = await fetch('/api/admin/rounds', {
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                const rounds = await response.json();
+                
+                const tbody = document.getElementById('rounds-body');
+                tbody.innerHTML = '';
+                
+                rounds.forEach(round => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${round.id}</td>
+                        <td>${round.room_name}</td>
+                        <td><span class="status-badge status-${round.status}">${round.status}</span></td>
+                        <td>$${round.total_pool}</td>
+                        <td>${round.numbers_called?.length || 0}/75</td>
+                        <td>${new Date(round.start_time).toLocaleString()}</td>
+                        <td>
+                            <button class="btn btn-primary btn-small" onclick="forceCallNumber(${round.id})">Call Number</button>
+                            <button class="btn btn-danger btn-small" onclick="endRound(${round.id})">End Round</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Failed to load rounds:', error);
+            }
+        }
+
+        // Load users
+        async function loadUsers(page = 1) {
+            try {
+                const response = await fetch(`/api/admin/users?page=${page}`, {
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                const users = await response.json();
+                
+                const tbody = document.getElementById('users-body');
+                
+                users.forEach(user => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${user.id}</td>
+                        <td>${user.telegram_id}</td>
+                        <td>@${user.username || 'N/A'}</td>
+                        <td>$${user.wallet_balance}</td>
+                        <td>${user.total_cards || 0}</td>
+                        <td><span class="status-badge ${user.is_blocked ? 'status-inactive' : 'status-active'}">${user.is_blocked ? 'Blocked' : 'Active'}</span></td>
+                        <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                        <td>
+                            <button class="btn ${user.is_blocked ? 'btn-success' : 'btn-danger'} btn-small" onclick="toggleUserBlock(${user.id})">
+                                ${user.is_blocked ? 'Unblock' : 'Block'}
+                            </button>
+                            <button class="btn btn-primary btn-small" onclick="viewUserDetails(${user.id})">View</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        }
+
+        // Load transactions
+        async function loadTransactions() {
+            try {
+                const response = await fetch('/api/admin/transactions?limit=20', {
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                const transactions = await response.json();
+                
+                const tbody = document.getElementById('transactions-body');
+                tbody.innerHTML = '';
+                
+                transactions.forEach(tx => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${tx.id}</td>
+                        <td>${tx.username || tx.user_id}</td>
+                        <td style="color: ${tx.amount > 0 ? '#4caf50' : '#f44336'}">$${Math.abs(tx.amount).toFixed(2)}</td>
+                        <td>${tx.type}</td>
+                        <td>${tx.reference_id || '-'}</td>
+                        <td>${new Date(tx.timestamp).toLocaleString()}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Failed to load transactions:', error);
+            }
+        }
+
+        // Load audit logs
+        async function loadAuditLogs() {
+            try {
+                const response = await fetch('/api/admin/audit?limit=20', {
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                const logs = await response.json();
+                
+                const tbody = document.getElementById('audit-body');
+                tbody.innerHTML = '';
+                
+                logs.forEach(log => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${new Date(log.timestamp).toLocaleString()}</td>
+                        <td>${log.action}</td>
+                        <td>${log.username || log.user_id}</td>
+                        <td>${JSON.stringify(log.details)}</td>
+                        <td>${log.ip_address || '-'}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Failed to load audit logs:', error);
+            }
+        }
+
+        // Chart initialization
+        function initChart() {
+            const ctx = document.getElementById('revenue-chart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [],
+                        borderColor: '#0088cc',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function updateChart(data) {
+            if (chart && data) {
+                chart.data.labels = data.labels;
+                chart.data.datasets[0].data = data.values;
+                chart.update();
+            }
+        }
+
+        // Actions
+        function showCreateRoomModal() {
+            document.getElementById('create-room-modal').classList.add('active');
+        }
+
+        function closeCreateRoomModal() {
+            document.getElementById('create-room-modal').classList.remove('active');
+        }
+
+        async function createRoom() {
+            const name = document.getElementById('room-name').value;
+            const price = parseFloat(document.getElementById('room-price').value);
+            const maxPlayers = parseInt(document.getElementById('room-max').value);
+            
+            try {
+                const response = await fetch('/api/admin/rooms', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Admin-ID': 'YOUR_ADMIN_ID'
+                    },
+                    body: JSON.stringify({name, price, max_players: maxPlayers})
+                });
+                
+                if (response.ok) {
+                    closeCreateRoomModal();
+                    await loadRooms();
+                }
+            } catch (error) {
+                console.error('Failed to create room:', error);
+            }
+        }
+
+        async function toggleUserBlock(userId) {
+            try {
+                const response = await fetch(`/api/admin/block_user/${userId}`, {
+                    method: 'POST',
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                
+                if (response.ok) {
+                    await loadUsers();
+                }
+            } catch (error) {
+                console.error('Failed to toggle user block:', error);
+            }
+        }
+
+        async function forceCallNumber(roundId) {
+            try {
+                const response = await fetch(`/api/admin/rounds/${roundId}/call`, {
+                    method: 'POST',
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                
+                if (response.ok) {
+                    await loadRounds();
+                }
+            } catch (error) {
+                console.error('Failed to call number:', error);
+            }
+        }
+
+        async function endRound(roundId) {
+            if (!confirm('Are you sure you want to end this round?')) return;
+            
+            try {
+                const response = await fetch(`/api/admin/rounds/${roundId}/end`, {
+                    method: 'POST',
+                    headers: {'X-Admin-ID': 'YOUR_ADMIN_ID'}
+                });
+                
+                if (response.ok) {
+                    await loadRounds();
+                }
+            } catch (error) {
+                console.error('Failed to end round:', error);
+            }
+        }
+
+        function searchUsers(query) {
+            // Implement search functionality
+            console.log('Searching:', query);
+        }
+
+        function loadMoreUsers() {
+            currentPage++;
+            loadUsers(currentPage);
+        }
+
+        function exportCSV() {
+            window.location.href = '/api/admin/export/transactions';
+        }
+
+        function refreshData() {
+            loadStats();
+            loadRooms();
+            loadRounds();
+            loadTransactions();
+            loadAuditLogs();
+        }
+
+        function updateTime() {
+            document.getElementById('current-time').textContent = new Date().toLocaleString();
+        }
+
+        function logout() {
+            window.location.href = '/admin/logout';
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
